@@ -1,6 +1,7 @@
 # chromakopia
 
-Audio fingerprinting and identification service using fpcalc and AcoustID.
+audio fingerprinting and identification service using fpcalc and AcoustID.
+utilized within [oxygen](https://zephyra.lol/oxygen), our music streaming platform
 
 ## Prerequisites
 
