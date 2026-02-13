@@ -10,18 +10,12 @@ export interface FpcalcResult {
 export async function runFpcalc(filePath: string): Promise<FpcalcResult> {
   const proc = spawn(["fpcalc", filePath]);
 
-  const [output, stderr] = await Promise.all([
-    proc.stdout.text(),
-    proc.stderr?.text() ?? Promise.resolve("")
-  ]);
+  const stderr = proc.stderr ? await proc.stderr.text() : "";
+  const output = await proc.stdout.text();
   
   const exitCode = await proc.exited;
 
-  if (exitCode !== 0) {
-    throw new Error(`fpcalc failed with exit code ${exitCode}`);
-  }
-
-  if (proc.exitCode !== 0 || output.toLowerCase().includes("error:")) {
+  if (exitCode !== 0 || output.toLowerCase().includes("error:")) {
     const errorMsg = output.trim() || stderr || "unknown error";
     throw new Error(`fpcalc failed: ${errorMsg}`);
   }
