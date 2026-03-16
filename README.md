@@ -3,6 +3,10 @@
 audio fingerprinting and identification service using fpcalc and AcoustID.<br/>
 utilized within [oxygen](https://zephyra.lol/oxygen), our music streaming platform
 
+> [!CAUTION]
+> this is an incredibly early version of chromakopia, and the next release will be a major change into the direction of a full AcoustID server.
+> if you wish to remain using the current version of chromakopia, be aware that **there will be no updates to the current iteration**.
+
 ## Prerequisites
 
 - Bun runtime
