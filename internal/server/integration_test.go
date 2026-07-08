@@ -15,7 +15,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	chroma "github.com/zephyraoss/libchroma"
+	chroma "github.com/zephyraoss/libchroma/v2"
 
 	"github.com/zephyraoss/chromakopia/internal/catalog"
 	"github.com/zephyraoss/chromakopia/internal/catalog/catalogtest"
