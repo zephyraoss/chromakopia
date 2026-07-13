@@ -45,6 +45,9 @@ func (d *Dataset) Stride() int {
 }
 
 func (d *Dataset) RecordCount() uint64 {
+	if !d.stats.HasDataStore {
+		return d.stats.MetadataCount
+	}
 	return d.stats.RecordCount
 }
 
@@ -53,11 +56,14 @@ func (d *Dataset) HasMetadataMap() bool {
 }
 
 func (d *Dataset) Resolve(fingerprintID uint32) (*Resolved, error) {
-	fp, err := d.d.Lookup(fingerprintID)
-	if err != nil {
-		return nil, fmt.Errorf("datastore lookup %d: %w", fingerprintID, err)
+	res := &Resolved{}
+	if d.stats.HasDataStore {
+		fp, err := d.d.Lookup(fingerprintID)
+		if err != nil {
+			return nil, fmt.Errorf("datastore lookup %d: %w", fingerprintID, err)
+		}
+		res.DurationMs = fp.DurationMs
 	}
-	res := &Resolved{DurationMs: fp.DurationMs}
 
 	meta, mbid, err := d.d.LookupMetadata(fingerprintID)
 	if err != nil && mbid == nil {
