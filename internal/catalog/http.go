@@ -17,7 +17,7 @@ const (
 
 func (s *Store) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /catalog/artist/{mbid}", entityHandler(s, "artist", (*Store).Artist))
-	mux.HandleFunc("GET /catalog/release-group/{mbid}", entityHandler(s, "release group", (*Store).ReleaseGroup))
+	mux.HandleFunc("GET /catalog/release-group/{mbid}", entityHandler(s, "release-group", (*Store).ReleaseGroup))
 	mux.HandleFunc("GET /catalog/release/{mbid}", entityHandler(s, "release", (*Store).Release))
 	mux.HandleFunc("GET /catalog/recording/{mbid}", entityHandler(s, "recording", (*Store).Recording))
 	mux.HandleFunc("GET /catalog/label/{mbid}", entityHandler(s, "label", (*Store).Label))
@@ -25,7 +25,9 @@ func (s *Store) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /catalog/search", s.handleSearch)
 }
 
-func entityHandler[T any](s *Store, kind string, lookup func(*Store, context.Context, string) (*T, error)) http.HandlerFunc {
+func entityHandler[T any](s *Store, pathType string, lookup func(*Store, context.Context, string) (*T, error)) http.HandlerFunc {
+	kind := strings.ReplaceAll(pathType, "-", " ")
+	entityType := strings.ReplaceAll(pathType, "-", "_")
 	return func(w http.ResponseWriter, r *http.Request) {
 		mbid := strings.ToLower(r.PathValue("mbid"))
 		entity, err := lookup(s, r.Context(), mbid)
@@ -35,6 +37,16 @@ func entityHandler[T any](s *Store, kind string, lookup func(*Store, context.Con
 			return
 		}
 		if entity == nil {
+			target, err := s.RedirectTarget(r.Context(), entityType, mbid)
+			if err != nil {
+				log.Printf("catalog %s %s: %v", kind, mbid, err)
+				writeError(w, http.StatusInternalServerError, "metadata lookup failed")
+				return
+			}
+			if target != "" {
+				http.Redirect(w, r, "/catalog/"+pathType+"/"+target, http.StatusMovedPermanently)
+				return
+			}
 			writeError(w, http.StatusNotFound, kind+" not found")
 			return
 		}

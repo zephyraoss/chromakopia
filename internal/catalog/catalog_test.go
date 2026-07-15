@@ -459,3 +459,61 @@ func TestStoreReopen(t *testing.T) {
 		t.Fatalf("after reopen: (%+v, %v), want the rebuilt title", rec, err)
 	}
 }
+
+func TestMergedMBIDsRedirect(t *testing.T) {
+	ts, store := newCatalogServer(t, false)
+
+	catalogtest.Exec(t, store.Path(),
+		`CREATE TABLE gid_redirects (
+		    entity_type TEXT NOT NULL,
+		    old_mbid    TEXT NOT NULL,
+		    new_mbid    TEXT NOT NULL,
+		    PRIMARY KEY (entity_type, old_mbid)
+		)`,
+		`INSERT INTO gid_redirects VALUES ('artist', '`+catalogtest.UnknownMBID+`', '`+catalogtest.ArtistAlphaMBID+`')`,
+		`INSERT INTO gid_redirects VALUES ('release_group', '`+catalogtest.UnknownMBID+`', '`+catalogtest.ReleaseGroupMBID+`')`,
+	)
+
+	client := &http.Client{CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	}}
+
+	resp, err := client.Get(ts.URL + "/catalog/artist/" + catalogtest.UnknownMBID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusMovedPermanently {
+		t.Fatalf("status = %d, want 301", resp.StatusCode)
+	}
+	if got := resp.Header.Get("Location"); got != "/catalog/artist/"+catalogtest.ArtistAlphaMBID {
+		t.Errorf("Location = %q", got)
+	}
+
+	resp, err = client.Get(ts.URL + "/catalog/release-group/" + catalogtest.UnknownMBID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusMovedPermanently {
+		t.Fatalf("release-group status = %d, want 301", resp.StatusCode)
+	}
+	if got := resp.Header.Get("Location"); got != "/catalog/release-group/"+catalogtest.ReleaseGroupMBID {
+		t.Errorf("release-group Location = %q", got)
+	}
+
+	var a Artist
+	if code := getJSON(t, ts.URL+"/catalog/artist/"+catalogtest.UnknownMBID, &a); code != http.StatusOK {
+		t.Fatalf("followed redirect status = %d", code)
+	}
+	if a.MBID != catalogtest.ArtistAlphaMBID || a.Name != "Alpha" {
+		t.Errorf("followed redirect artist = %+v", a)
+	}
+
+	var body struct {
+		Status string `json:"status"`
+	}
+	if code := getJSON(t, ts.URL+"/catalog/recording/"+catalogtest.UnknownMBID, &body); code != http.StatusNotFound {
+		t.Errorf("unredirected mbid status = %d, want 404", code)
+	}
+}

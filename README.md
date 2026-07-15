@@ -191,8 +191,11 @@ curl -X POST -H "Content-Type: application/json" \
 
 Read-only lookups against the mbforge metadata database. MBIDs are
 case-insensitive. Unknown MBIDs return `404` with
-`{"status": "ERROR", "error": "<entity> not found"}`. The JSON shapes are
-chromakopia's own — deliberately more modest than the MusicBrainz ws/2 API.
+`{"status": "ERROR", "error": "<entity> not found"}`. MBIDs merged away in
+MusicBrainz return `301` to the merge target's URL when the database has a
+`gid_redirects` table (populated by `mbforge prune`); databases without that
+table simply keep returning `404`. The JSON shapes are chromakopia's own —
+deliberately more modest than the MusicBrainz ws/2 API.
 
 ### GET /catalog/artist/:mbid
 
