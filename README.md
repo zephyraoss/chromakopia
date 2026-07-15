@@ -314,9 +314,9 @@ Work with ISWCs and the recordings of it.
 ### GET /catalog/search?q=&type=&limit=
 
 Full-text search across artists, labels, works, release groups, releases,
-recordings, and tracks — the same behavior as `mbforge search`. When the
-database carries the FTS index built by `mbforge search-index` the query
-uses it (`"indexed": true`); otherwise the service falls back to slower
+recordings, and tracks — the same matching and ranking as `mbforge search`.
+When the database carries the FTS index built by `mbforge search-index` the
+query uses it (`"indexed": true`); otherwise the service falls back to slower
 tiered LIKE queries (exact, prefix, substring — including alias, ISRC, and
 barcode matches).
 
@@ -326,13 +326,25 @@ barcode matches).
 | type | optional filter: `artist`, `label`, `work`, `release_group` (or `release-group`), `release`, `recording`, `track` |
 | limit | max results per entity type, default 10, max 50 |
 
+Every result carries `type`, `mbid`, and `name`. After matching, each hit is
+enriched from the base tables with display fields that depend on the type;
+empty fields are omitted:
+
+| Type | Extra fields |
+|------|--------------|
+| `recording`, `release`, `release_group`, `track` | `artist` (joined artist credit), `year` (release year) |
+| `artist` | `disambiguation`, `artistType` |
+| `label` | `disambiguation`, `country` |
+| `work` | `workType` |
+
 ```json
 {
-  "status": "ok", "query": "fern", "indexed": true,
+  "status": "ok", "query": "test song", "indexed": true,
   "results": [
-    {"type": "label", "mbid": "b0000000-…", "name": "Fern Records",
-     "detail": "Fern Records", "meta": "Original Production GB", "aux": "Fern",
-     "score": -1.82}
+    {"type": "recording", "mbid": "11111111-…", "name": "Test Song",
+     "artist": "Alpha feat. Beta", "year": 2001, "score": -1.82},
+    {"type": "work", "mbid": "c0000000-…", "name": "Test Song",
+     "workType": "Song", "score": -1.64}
   ]
 }
 ```

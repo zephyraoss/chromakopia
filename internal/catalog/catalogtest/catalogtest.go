@@ -258,7 +258,7 @@ CREATE VIRTUAL TABLE search_fts USING fts5(
 )`
 
 var fixtureRows = []string{
-	`INSERT INTO artists VALUES ('` + ArtistAlphaMBID + `', 'Alpha', 'Alpha', '', 'Group', 'GB', NULL,
+	`INSERT INTO artists VALUES ('` + ArtistAlphaMBID + `', 'Alpha', 'Alpha', 'UK group', 'Group', 'GB', NULL,
 	    '1990', NULL, 0, 'f0000000-0000-4000-8000-0000000000aa', 'United Kingdom')`,
 	`INSERT INTO artists VALUES ('` + ArtistBetaMBID + `', 'Beta', 'Beta', '', 'Person', 'GB', 'male',
 	    NULL, NULL, 0, NULL, NULL)`,
@@ -271,7 +271,7 @@ var fixtureRows = []string{
 	`INSERT INTO artist_relationships VALUES ('` + ArtistBetaMBID + `', '` + ArtistAlphaMBID + `', 'Alpha',
 	    'member of band', 'forward', '1990', '', 0, '')`,
 
-	`INSERT INTO labels VALUES ('` + LabelMBID + `', 'Fern Records', 'Fern Records', '', 'Original Production',
+	`INSERT INTO labels VALUES ('` + LabelMBID + `', 'Fern Records', 'Fern Records', 'UK indie', 'Original Production',
 	    123, 'GB', '1995', NULL, 0, NULL, NULL)`,
 	`INSERT INTO label_aliases VALUES ('` + LabelMBID + `', 'Fern', 'Fern', NULL, '', 0)`,
 

@@ -215,6 +215,17 @@ func TestUnknownMBIDsReturn404(t *testing.T) {
 	}
 }
 
+func findResult(t *testing.T, results []SearchResult, typ, mbid string) SearchResult {
+	t.Helper()
+	for _, r := range results {
+		if r.Type == typ && r.MBID == mbid {
+			return r
+		}
+	}
+	t.Fatalf("results = %+v, want %s %s", results, typ, mbid)
+	return SearchResult{}
+}
+
 func TestSearchFTS(t *testing.T) {
 	ts, _ := newCatalogServer(t, true)
 
@@ -225,15 +236,72 @@ func TestSearchFTS(t *testing.T) {
 	if !body.Indexed {
 		t.Fatal("indexed = false, want the FTS fast path")
 	}
-	found := false
-	for _, r := range body.Results {
-		if r.Type == "artist" && r.MBID == catalogtest.ArtistAlphaMBID {
-			found = true
+
+	artist := findResult(t, body.Results, "artist", catalogtest.ArtistAlphaMBID)
+	if artist.Name != "Alpha" || artist.ArtistType != "Group" || artist.Disambiguation != "UK group" {
+		t.Errorf("artist = %+v, want name/artistType/disambiguation", artist)
+	}
+	if artist.Artist != "" || artist.Year != 0 || artist.WorkType != "" || artist.Country != "" {
+		t.Errorf("artist = %+v, want no artist/year/workType/country", artist)
+	}
+	if artist.Score == 0 {
+		t.Errorf("artist score = 0, want bm25 score on the indexed path")
+	}
+
+	rg := findResult(t, body.Results, "release_group", catalogtest.ReleaseGroupMBID)
+	if rg.Name != "Test Album" || rg.Artist != "Alpha" || rg.Year != 2001 {
+		t.Errorf("release group = %+v, want artist Alpha year 2001", rg)
+	}
+
+	rel := findResult(t, body.Results, "release", catalogtest.Release2009MBID)
+	if rel.Artist != "Alpha" || rel.Year != 2009 {
+		t.Errorf("release = %+v, want artist Alpha year 2009", rel)
+	}
+
+	rec := findResult(t, body.Results, "recording", catalogtest.RecordingMBID)
+	if rec.Name != "Test Song" || rec.Artist != "Alpha feat. Beta" || rec.Year != 2001 {
+		t.Errorf("recording = %+v, want joined credit and year 2001", rec)
+	}
+
+	track := findResult(t, body.Results, "track", catalogtest.Track2001MBID)
+	if track.Artist != "Alpha" || track.Year != 2001 {
+		t.Errorf("track = %+v, want release artist and year", track)
+	}
+
+	t.Run("label fields", func(t *testing.T) {
+		var body searchResponse
+		getJSON(t, ts.URL+"/catalog/search?q=fern", &body)
+		label := findResult(t, body.Results, "label", catalogtest.LabelMBID)
+		if label.Name != "Fern Records" || label.Disambiguation != "UK indie" || label.Country != "GB" {
+			t.Errorf("label = %+v, want disambiguation and country", label)
 		}
-	}
-	if !found {
-		t.Errorf("results = %+v, want artist Alpha", body.Results)
-	}
+	})
+
+	t.Run("work fields", func(t *testing.T) {
+		var body searchResponse
+		getJSON(t, ts.URL+"/catalog/search?q=test&type=work", &body)
+		work := findResult(t, body.Results, "work", catalogtest.WorkMBID)
+		if work.Name != "Test Song" || work.WorkType != "Song" {
+			t.Errorf("work = %+v, want workType Song", work)
+		}
+	})
+
+	t.Run("no raw FTS columns", func(t *testing.T) {
+		var raw struct {
+			Results []map[string]any `json:"results"`
+		}
+		getJSON(t, ts.URL+"/catalog/search?q=alpha", &raw)
+		if len(raw.Results) == 0 {
+			t.Fatal("no results")
+		}
+		for _, r := range raw.Results {
+			for _, dropped := range []string{"detail", "meta", "aux"} {
+				if _, ok := r[dropped]; ok {
+					t.Errorf("result %v carries dropped field %q", r, dropped)
+				}
+			}
+		}
+	})
 
 	t.Run("prefix tokens match", func(t *testing.T) {
 		var body searchResponse
@@ -284,12 +352,23 @@ func TestSearchSlowPath(t *testing.T) {
 			t.Errorf("results %v missing %s titled 'Test Song'", got, want)
 		}
 	}
+	rec := findResult(t, body.Results, "recording", catalogtest.RecordingMBID)
+	if rec.Artist != "Alpha feat. Beta" || rec.Year != 2001 {
+		t.Errorf("recording = %+v, want enriched artist and year on the slow path", rec)
+	}
+	work := findResult(t, body.Results, "work", catalogtest.WorkMBID)
+	if work.WorkType != "Song" {
+		t.Errorf("work = %+v, want workType Song", work)
+	}
 
 	t.Run("substring tier", func(t *testing.T) {
 		var body searchResponse
 		getJSON(t, ts.URL+"/catalog/search?q=ern+Reco&type=label", &body)
 		if len(body.Results) != 1 || body.Results[0].MBID != catalogtest.LabelMBID {
 			t.Errorf("results = %+v, want Fern Records via substring match", body.Results)
+		}
+		if body.Results[0].Disambiguation != "UK indie" || body.Results[0].Country != "GB" {
+			t.Errorf("label = %+v, want disambiguation and country", body.Results[0])
 		}
 	})
 
@@ -298,6 +377,9 @@ func TestSearchSlowPath(t *testing.T) {
 		getJSON(t, ts.URL+"/catalog/search?q=The+Alphas&type=artist", &body)
 		if len(body.Results) != 1 || body.Results[0].MBID != catalogtest.ArtistAlphaMBID {
 			t.Errorf("results = %+v, want Alpha via alias", body.Results)
+		}
+		if body.Results[0].ArtistType != "Group" || body.Results[0].Disambiguation != "UK group" {
+			t.Errorf("artist = %+v, want artistType and disambiguation", body.Results[0])
 		}
 	})
 
